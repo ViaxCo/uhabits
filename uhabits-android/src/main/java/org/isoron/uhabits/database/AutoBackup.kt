@@ -35,24 +35,28 @@ class AutoBackup(private val context: Context) {
 
     fun run(keep: Int = 5) {
         Log.i("AutoBackup", "Starting automatic backups...")
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val uriString = prefs.getString("publicBackupFolder", null)
-        if (uriString != null) {
-            val uri = Uri.parse(uriString)
-            val dir = if (uri.scheme == "content") {
-                DocumentFile.fromTreeUri(context, uri)
-            } else {
-                DocumentFile.fromFile(File(uri.path!!))
-            }
-            if (dir != null) {
-                runInPublicDir(dir, keep)
-                return
-            }
+        val publicDir = publicDir()
+        if (publicDir != null) {
+            runInPublicDir(publicDir, keep)
+            return
         }
 
-        val basedir = AndroidDirFinder(context).getFilesDir("Backups") ?: return
+        val basedir = privateDir() ?: return
         runInPrivateDir(basedir, keep)
     }
+
+    private fun publicDir(): DocumentFile? {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val uriString = prefs.getString("publicBackupFolder", null) ?: return null
+        val uri = Uri.parse(uriString)
+        return if (uri.scheme == "content") {
+            DocumentFile.fromTreeUri(context, uri)
+        } else {
+            DocumentFile.fromFile(File(uri.path!!))
+        }
+    }
+
+    private fun privateDir() = AndroidDirFinder(context).getFilesDir("Backups")
 
     private fun runInPrivateDir(dir: File, keep: Int) {
         val files = dir.listFiles()?.toMutableList() ?: mutableListOf()

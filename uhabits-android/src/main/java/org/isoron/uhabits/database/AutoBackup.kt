@@ -28,10 +28,13 @@ import org.isoron.platform.time.DateUtils
 import org.isoron.uhabits.AndroidDirFinder
 import org.isoron.uhabits.utils.DatabaseUtils
 import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
 
 class AutoBackup(private val context: Context) {
 
     private val backupPattern = Regex("^Loop Habits Backup .+\\.db$")
+    private val latestName = "Loop Habits Latest.db"
 
     fun run(keep: Int = 5) {
         Log.i("AutoBackup", "Starting automatic backups...")
@@ -43,6 +46,22 @@ class AutoBackup(private val context: Context) {
 
         val basedir = privateDir() ?: return
         runInPrivateDir(basedir, keep)
+    }
+
+    @Synchronized
+    fun saveLatest() {
+        try {
+            val publicDir = publicDir()
+            if (publicDir != null) {
+                saveLatestInPublicDir(publicDir)
+                return
+            }
+
+            val basedir = privateDir() ?: return
+            DatabaseUtils.getDatabaseFile(context).copyTo(File(basedir, latestName), overwrite = true)
+        } catch (e: Exception) {
+            Log.e("AutoBackup", "Failed to save latest backup", e)
+        }
     }
 
     private fun publicDir(): DocumentFile? {
@@ -57,6 +76,17 @@ class AutoBackup(private val context: Context) {
     }
 
     private fun privateDir() = AndroidDirFinder(context).getFilesDir("Backups")
+
+    private fun saveLatestInPublicDir(dir: DocumentFile) {
+        val file = dir.findFile(latestName)
+            ?: dir.createFile("application/octet-stream", latestName)
+            ?: throw IOException("Unable to create $latestName")
+        FileInputStream(DatabaseUtils.getDatabaseFile(context)).use { input ->
+            context.contentResolver.openOutputStream(file.uri, "wt")?.use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
 
     private fun runInPrivateDir(dir: File, keep: Int) {
         val files = dir.listFiles()

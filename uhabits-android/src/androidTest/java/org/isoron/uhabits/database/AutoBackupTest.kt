@@ -42,6 +42,20 @@ class AutoBackupTest : BaseAndroidTest() {
     }
 
     @Test
+    fun testRunIgnoresLatestBackup() {
+        DateUtils.setFixedLocalTime(40 * DateUtils.DAY_LENGTH)
+        val basedir = AndroidDirFinder(targetContext).getFilesDir("Backups")!!
+        createTestFiles(basedir, 1)
+
+        val autoBackup = AutoBackup(targetContext)
+        autoBackup.saveLatest()
+        autoBackup.run(keep = 5)
+
+        assertExists("${basedir.path}/Loop Habits Latest.db")
+        assertEquals(2, basedir.list()!!.count { it.startsWith("Loop Habits Backup ") })
+    }
+
+    @Test
     fun testRunWithEmptyDir() {
         val basedir = AndroidDirFinder(targetContext).getFilesDir("Backups")!!
         removeAllFiles(basedir)

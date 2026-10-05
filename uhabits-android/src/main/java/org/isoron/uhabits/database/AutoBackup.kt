@@ -59,8 +59,10 @@ class AutoBackup(private val context: Context) {
     private fun privateDir() = AndroidDirFinder(context).getFilesDir("Backups")
 
     private fun runInPrivateDir(dir: File, keep: Int) {
-        val files = dir.listFiles()?.toMutableList() ?: mutableListOf()
-        files.sortBy { it.lastModified() }
+        val files = dir.listFiles()
+            ?.filter { it.isFile && it.name.matches(backupPattern) }
+            ?.sortedBy { it.lastModified() }
+            ?: emptyList()
         val newestTimestamp = files.lastOrNull()?.lastModified() ?: 0L
         removeOldestPrivate(files, keep)
         val now = DateUtils.getLocalTime()

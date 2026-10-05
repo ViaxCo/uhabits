@@ -36,8 +36,8 @@ class AutoBackupTest : BaseAndroidTest() {
         val autoBackup = AutoBackup(targetContext)
         autoBackup.run(keep = 5)
 
-        for (k in 1..25) assertDoesNotExist("${basedir.path}/test-$k.txt")
-        for (k in 26..30) assertExists("${basedir.path}/test-$k.txt")
+        for (k in 1..25) assertDoesNotExist("${basedir.path}/Loop Habits Backup test-$k.db")
+        for (k in 26..30) assertExists("${basedir.path}/Loop Habits Backup test-$k.db")
         assertExists("${basedir.path}/Loop Habits Backup 1970-02-10 000000.db")
     }
 
@@ -63,7 +63,7 @@ class AutoBackupTest : BaseAndroidTest() {
     private fun createTestFiles(basedir: File, nfiles: Int) {
         removeAllFiles(basedir)
         for (k in 1..nfiles) {
-            touch("${basedir.path}/test-$k.txt", DateUtils.DAY_LENGTH * k)
+            touch("${basedir.path}/Loop Habits Backup test-$k.db", DateUtils.DAY_LENGTH * k)
         }
     }
 

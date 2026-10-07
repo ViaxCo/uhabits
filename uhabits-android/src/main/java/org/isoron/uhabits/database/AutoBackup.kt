@@ -82,7 +82,12 @@ class AutoBackup(private val context: Context) {
     private fun privateDir() = AndroidDirFinder(context).getFilesDir("Backups")
 
     private fun saveLatestInPublicDir(dir: DocumentFile) {
-        dir.findFile(tempName)?.delete()
+        val leftover = dir.findFile(tempName)
+        if (leftover != null && dir.findFile(latestName) == null) {
+            leftover.renameTo(latestName)
+        } else {
+            leftover?.delete()
+        }
         val temp = dir.createFile("application/octet-stream", tempName)
             ?: throw IOException("Unable to create $tempName")
         val output = context.contentResolver.openOutputStream(temp.uri)

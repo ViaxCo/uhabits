@@ -79,7 +79,9 @@ object DatabaseUtils {
         val file = dir.createFile("application/octet-stream", "Loop Habits Backup $date.db")
             ?: throw IOException("Unable to create backup file")
         Log.i("DatabaseUtils", "Writing: ${file.uri}")
-        context.contentResolver.openOutputStream(file.uri)?.use { copyDatabase(context, it) }
+        val output = context.contentResolver.openOutputStream(file.uri)
+            ?: throw IOException("Unable to open backup file")
+        output.use { copyDatabase(context, it) }
         return file.uri.toString()
     }
 

@@ -35,6 +35,7 @@ class AutoBackup(private val context: Context) {
 
     private val backupPattern = Regex("^Loop Habits Backup .+\\.db$")
     private val latestName = "Loop Habits Latest.db"
+    private val tempName = "$latestName.tmp"
 
     fun run(keep: Int = 5) {
         Log.i("AutoBackup", "Starting automatic backups...")
@@ -58,7 +59,9 @@ class AutoBackup(private val context: Context) {
             }
 
             val basedir = privateDir() ?: return
-            FileOutputStream(File(basedir, latestName)).use { DatabaseUtils.copyDatabase(context, it) }
+            val temp = File(basedir, tempName)
+            FileOutputStream(temp).use { DatabaseUtils.copyDatabase(context, it) }
+            if (!temp.renameTo(File(basedir, latestName))) throw IOException("Unable to replace $latestName")
         } catch (e: Exception) {
             Log.e("AutoBackup", "Failed to save latest backup", e)
         }
@@ -78,10 +81,14 @@ class AutoBackup(private val context: Context) {
     private fun privateDir() = AndroidDirFinder(context).getFilesDir("Backups")
 
     private fun saveLatestInPublicDir(dir: DocumentFile) {
-        val file = dir.findFile(latestName)
-            ?: dir.createFile("application/octet-stream", latestName)
-            ?: throw IOException("Unable to create $latestName")
-        context.contentResolver.openOutputStream(file.uri, "wt")?.use { DatabaseUtils.copyDatabase(context, it) }
+        dir.findFile(tempName)?.delete()
+        val temp = dir.createFile("application/octet-stream", tempName)
+            ?: throw IOException("Unable to create $tempName")
+        val output = context.contentResolver.openOutputStream(temp.uri)
+            ?: throw IOException("Unable to open $tempName")
+        output.use { DatabaseUtils.copyDatabase(context, it) }
+        dir.findFile(latestName)?.delete()
+        if (!temp.renameTo(latestName)) throw IOException("Unable to replace $latestName")
     }
 
     private fun runInPrivateDir(dir: File, keep: Int) {

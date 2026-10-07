@@ -88,12 +88,18 @@ object DatabaseUtils {
     @JvmStatic
     @Throws(IOException::class)
     fun copyDatabase(context: Context, output: OutputStream) {
-        val db = openDatabase()
-        db.beginTransaction()
+        val snapshot = File.createTempFile("backup", ".db", context.cacheDir)
         try {
-            FileInputStream(getDatabaseFile(context)).use { it.copyTo(output) }
+            val db = openDatabase()
+            db.beginTransaction()
+            try {
+                getDatabaseFile(context).copyTo(snapshot, overwrite = true)
+            } finally {
+                db.endTransaction()
+            }
+            FileInputStream(snapshot).use { it.copyTo(output) }
         } finally {
-            db.endTransaction()
+            snapshot.delete()
         }
     }
 

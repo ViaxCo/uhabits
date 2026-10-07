@@ -28,35 +28,80 @@ import org.isoron.platform.time.DateUtils
 import org.isoron.uhabits.AndroidDirFinder
 import org.isoron.uhabits.utils.DatabaseUtils
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 class AutoBackup(private val context: Context) {
 
     private val backupPattern = Regex("^Loop Habits Backup .+\\.db$")
+    private val latestName = "Loop Habits Latest.db"
+    private val tempName = "$latestName.tmp"
 
     fun run(keep: Int = 5) {
         Log.i("AutoBackup", "Starting automatic backups...")
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val uriString = prefs.getString("publicBackupFolder", null)
-        if (uriString != null) {
-            val uri = Uri.parse(uriString)
-            val dir = if (uri.scheme == "content") {
-                DocumentFile.fromTreeUri(context, uri)
-            } else {
-                DocumentFile.fromFile(File(uri.path!!))
-            }
-            if (dir != null) {
-                runInPublicDir(dir, keep)
-                return
-            }
+        val publicDir = publicDir()
+        if (publicDir != null) {
+            runInPublicDir(publicDir, keep)
+            return
         }
 
-        val basedir = AndroidDirFinder(context).getFilesDir("Backups") ?: return
+        val basedir = privateDir() ?: return
         runInPrivateDir(basedir, keep)
     }
 
+    fun saveLatest() {
+        synchronized(AutoBackup::class.java) {
+            try {
+                val publicDir = publicDir()
+                if (publicDir != null) {
+                    saveLatestInPublicDir(publicDir)
+                    return
+                }
+
+                val basedir = privateDir() ?: return
+                val temp = File(basedir, tempName)
+                FileOutputStream(temp).use { DatabaseUtils.copyDatabase(context, it) }
+                if (!temp.renameTo(File(basedir, latestName))) throw IOException("Unable to replace $latestName")
+            } catch (e: Exception) {
+                Log.e("AutoBackup", "Failed to save latest backup", e)
+            }
+        }
+    }
+
+    private fun publicDir(): DocumentFile? {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val uriString = prefs.getString("publicBackupFolder", null) ?: return null
+        val uri = Uri.parse(uriString)
+        return if (uri.scheme == "content") {
+            DocumentFile.fromTreeUri(context, uri)
+        } else {
+            DocumentFile.fromFile(File(uri.path!!))
+        }
+    }
+
+    private fun privateDir() = AndroidDirFinder(context).getFilesDir("Backups")
+
+    private fun saveLatestInPublicDir(dir: DocumentFile) {
+        val leftover = dir.findFile(tempName)
+        if (leftover != null && dir.findFile(latestName) == null) {
+            leftover.renameTo(latestName)
+        } else {
+            leftover?.delete()
+        }
+        val temp = dir.createFile("application/octet-stream", tempName)
+            ?: throw IOException("Unable to create $tempName")
+        val output = context.contentResolver.openOutputStream(temp.uri)
+            ?: throw IOException("Unable to open $tempName")
+        output.use { DatabaseUtils.copyDatabase(context, it) }
+        dir.findFile(latestName)?.delete()
+        if (!temp.renameTo(latestName)) throw IOException("Unable to replace $latestName")
+    }
+
     private fun runInPrivateDir(dir: File, keep: Int) {
-        val files = dir.listFiles()?.toMutableList() ?: mutableListOf()
-        files.sortBy { it.lastModified() }
+        val files = dir.listFiles()
+            ?.filter { it.isFile && it.name.matches(backupPattern) }
+            ?.sortedBy { it.lastModified() }
+            ?: emptyList()
         val newestTimestamp = files.lastOrNull()?.lastModified() ?: 0L
         removeOldestPrivate(files, keep)
         val now = DateUtils.getLocalTime()

@@ -64,6 +64,7 @@ import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsBehavior.Message
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsBehavior.Message.IMPORT_SUCCESSFUL
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsMenuBehavior
 import org.isoron.uhabits.core.ui.screens.habits.list.ListHabitsSelectionMenuBehavior
+import org.isoron.uhabits.database.AutoBackup
 import org.isoron.uhabits.inject.ActivityContext
 import org.isoron.uhabits.inject.ActivityScope
 import org.isoron.uhabits.intents.IntentFactory
@@ -350,6 +351,7 @@ class ListHabitsScreen(
                 when (result) {
                     ImportDataTask.SUCCESS -> {
                         adapter.refresh()
+                        taskRunner.execute { AutoBackup(activity).saveLatest() }
                         activity.showMessage(activity.resources.getString(R.string.habits_imported))
                     }
 

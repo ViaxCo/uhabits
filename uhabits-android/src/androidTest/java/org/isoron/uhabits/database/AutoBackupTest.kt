@@ -22,6 +22,7 @@ package org.isoron.uhabits.database
 import org.isoron.platform.time.DateUtils
 import org.isoron.uhabits.AndroidDirFinder
 import org.isoron.uhabits.BaseAndroidTest
+import org.isoron.uhabits.utils.DatabaseUtils
 import org.junit.Test
 import java.io.File
 import java.io.FileOutputStream
@@ -36,9 +37,36 @@ class AutoBackupTest : BaseAndroidTest() {
         val autoBackup = AutoBackup(targetContext)
         autoBackup.run(keep = 5)
 
-        for (k in 1..25) assertDoesNotExist("${basedir.path}/test-$k.txt")
-        for (k in 26..30) assertExists("${basedir.path}/test-$k.txt")
+        for (k in 1..25) assertDoesNotExist("${basedir.path}/Loop Habits Backup test-$k.db")
+        for (k in 26..30) assertExists("${basedir.path}/Loop Habits Backup test-$k.db")
         assertExists("${basedir.path}/Loop Habits Backup 1970-02-10 000000.db")
+    }
+
+    @Test
+    fun testRunIgnoresLatestBackup() {
+        DateUtils.setFixedLocalTime(40 * DateUtils.DAY_LENGTH)
+        val basedir = AndroidDirFinder(targetContext).getFilesDir("Backups")!!
+        createTestFiles(basedir, 1)
+
+        val autoBackup = AutoBackup(targetContext)
+        autoBackup.saveLatest()
+        autoBackup.run(keep = 5)
+
+        assertExists("${basedir.path}/Loop Habits Latest.db")
+        assertEquals(2, basedir.list()!!.count { it.startsWith("Loop Habits Backup ") })
+    }
+
+    @Test
+    fun testSaveLatestReplacesPreviousCopy() {
+        val basedir = AndroidDirFinder(targetContext).getFilesDir("Backups")!!
+        removeAllFiles(basedir)
+        touch("${basedir.path}/Loop Habits Latest.db", 0)
+
+        AutoBackup(targetContext).saveLatest()
+
+        val db = DatabaseUtils.getDatabaseFile(targetContext)
+        assertEquals(db.length(), File(basedir, "Loop Habits Latest.db").length())
+        assertDoesNotExist("${basedir.path}/Loop Habits Latest.db.tmp")
     }
 
     @Test
@@ -63,7 +91,7 @@ class AutoBackupTest : BaseAndroidTest() {
     private fun createTestFiles(basedir: File, nfiles: Int) {
         removeAllFiles(basedir)
         for (k in 1..nfiles) {
-            touch("${basedir.path}/test-$k.txt", DateUtils.DAY_LENGTH * k)
+            touch("${basedir.path}/Loop Habits Backup test-$k.db", DateUtils.DAY_LENGTH * k)
         }
     }
 

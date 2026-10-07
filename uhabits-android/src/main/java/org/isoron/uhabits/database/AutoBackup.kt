@@ -28,7 +28,7 @@ import org.isoron.platform.time.DateUtils
 import org.isoron.uhabits.AndroidDirFinder
 import org.isoron.uhabits.utils.DatabaseUtils
 import java.io.File
-import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.IOException
 
 class AutoBackup(private val context: Context) {
@@ -58,7 +58,7 @@ class AutoBackup(private val context: Context) {
             }
 
             val basedir = privateDir() ?: return
-            DatabaseUtils.getDatabaseFile(context).copyTo(File(basedir, latestName), overwrite = true)
+            FileOutputStream(File(basedir, latestName)).use { DatabaseUtils.copyDatabase(context, it) }
         } catch (e: Exception) {
             Log.e("AutoBackup", "Failed to save latest backup", e)
         }
@@ -81,11 +81,7 @@ class AutoBackup(private val context: Context) {
         val file = dir.findFile(latestName)
             ?: dir.createFile("application/octet-stream", latestName)
             ?: throw IOException("Unable to create $latestName")
-        FileInputStream(DatabaseUtils.getDatabaseFile(context)).use { input ->
-            context.contentResolver.openOutputStream(file.uri, "wt")?.use { output ->
-                input.copyTo(output)
-            }
-        }
+        context.contentResolver.openOutputStream(file.uri, "wt")?.use { DatabaseUtils.copyDatabase(context, it) }
     }
 
     private fun runInPrivateDir(dir: File, keep: Int) {

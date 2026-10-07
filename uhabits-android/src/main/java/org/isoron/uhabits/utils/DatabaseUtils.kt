@@ -29,7 +29,9 @@ import org.isoron.uhabits.core.DATABASE_FILENAME
 import org.isoron.uhabits.core.DATABASE_VERSION
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 
 object DatabaseUtils {
@@ -64,9 +66,8 @@ object DatabaseUtils {
         val date = dateFormat.format(System.currentTimeMillis())
         val filename = "${dir.absolutePath}/Loop Habits Backup $date.db"
         Log.i("DatabaseUtils", "Writing: $filename")
-        val db = getDatabaseFile(context)
         val dbCopy = File(filename)
-        db.copyTo(dbCopy)
+        FileOutputStream(dbCopy).use { copyDatabase(context, it) }
         return dbCopy.absolutePath
     }
 
@@ -78,13 +79,20 @@ object DatabaseUtils {
         val file = dir.createFile("application/octet-stream", "Loop Habits Backup $date.db")
             ?: throw IOException("Unable to create backup file")
         Log.i("DatabaseUtils", "Writing: ${file.uri}")
-        val db = getDatabaseFile(context)
-        FileInputStream(db).use { input ->
-            context.contentResolver.openOutputStream(file.uri)?.use { output ->
-                input.copyTo(output)
-            }
-        }
+        context.contentResolver.openOutputStream(file.uri)?.use { copyDatabase(context, it) }
         return file.uri.toString()
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun copyDatabase(context: Context, output: OutputStream) {
+        val db = openDatabase()
+        db.beginTransaction()
+        try {
+            FileInputStream(getDatabaseFile(context)).use { it.copyTo(output) }
+        } finally {
+            db.endTransaction()
+        }
     }
 
     fun openDatabase(): SQLiteDatabase {

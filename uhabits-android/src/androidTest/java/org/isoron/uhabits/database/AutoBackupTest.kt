@@ -22,6 +22,7 @@ package org.isoron.uhabits.database
 import org.isoron.platform.time.DateUtils
 import org.isoron.uhabits.AndroidDirFinder
 import org.isoron.uhabits.BaseAndroidTest
+import org.isoron.uhabits.utils.DatabaseUtils
 import org.junit.Test
 import java.io.File
 import java.io.FileOutputStream
@@ -53,6 +54,19 @@ class AutoBackupTest : BaseAndroidTest() {
 
         assertExists("${basedir.path}/Loop Habits Latest.db")
         assertEquals(2, basedir.list()!!.count { it.startsWith("Loop Habits Backup ") })
+    }
+
+    @Test
+    fun testSaveLatestReplacesPreviousCopy() {
+        val basedir = AndroidDirFinder(targetContext).getFilesDir("Backups")!!
+        removeAllFiles(basedir)
+        touch("${basedir.path}/Loop Habits Latest.db", 0)
+
+        AutoBackup(targetContext).saveLatest()
+
+        val db = DatabaseUtils.getDatabaseFile(targetContext)
+        assertEquals(db.length(), File(basedir, "Loop Habits Latest.db").length())
+        assertDoesNotExist("${basedir.path}/Loop Habits Latest.db.tmp")
     }
 
     @Test

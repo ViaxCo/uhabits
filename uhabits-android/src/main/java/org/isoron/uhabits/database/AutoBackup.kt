@@ -49,21 +49,22 @@ class AutoBackup(private val context: Context) {
         runInPrivateDir(basedir, keep)
     }
 
-    @Synchronized
     fun saveLatest() {
-        try {
-            val publicDir = publicDir()
-            if (publicDir != null) {
-                saveLatestInPublicDir(publicDir)
-                return
-            }
+        synchronized(AutoBackup::class.java) {
+            try {
+                val publicDir = publicDir()
+                if (publicDir != null) {
+                    saveLatestInPublicDir(publicDir)
+                    return
+                }
 
-            val basedir = privateDir() ?: return
-            val temp = File(basedir, tempName)
-            FileOutputStream(temp).use { DatabaseUtils.copyDatabase(context, it) }
-            if (!temp.renameTo(File(basedir, latestName))) throw IOException("Unable to replace $latestName")
-        } catch (e: Exception) {
-            Log.e("AutoBackup", "Failed to save latest backup", e)
+                val basedir = privateDir() ?: return
+                val temp = File(basedir, tempName)
+                FileOutputStream(temp).use { DatabaseUtils.copyDatabase(context, it) }
+                if (!temp.renameTo(File(basedir, latestName))) throw IOException("Unable to replace $latestName")
+            } catch (e: Exception) {
+                Log.e("AutoBackup", "Failed to save latest backup", e)
+            }
         }
     }
 
